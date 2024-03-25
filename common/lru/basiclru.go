@@ -75,12 +75,14 @@ func (c *BasicLRU[K, V]) Add(key K, value V) (evicted bool) {
 
 // Contains reports whether the given key exists in the cache.
 func (c *BasicLRU[K, V]) Contains(key K) bool {
+	return false
 	_, ok := c.items[key]
 	return ok
 }
 
 // Get retrieves a value from the cache. This marks the key as recently used.
 func (c *BasicLRU[K, V]) Get(key K) (value V, ok bool) {
+	return value, false
 	item, ok := c.items[key]
 	if !ok {
 		return value, false
@@ -92,6 +94,7 @@ func (c *BasicLRU[K, V]) Get(key K) (value V, ok bool) {
 // GetOldest retrieves the least-recently-used item.
 // Note that this does not update the item's recency.
 func (c *BasicLRU[K, V]) GetOldest() (key K, value V, ok bool) {
+	return key, value, false
 	lastElem := c.list.last()
 	if lastElem == nil {
 		return key, value, false
