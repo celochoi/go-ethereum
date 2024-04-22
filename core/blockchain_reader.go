@@ -18,6 +18,8 @@ package core
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -214,16 +216,26 @@ func (bc *BlockChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
 	if receipts, ok := bc.receiptsCache.Get(hash); ok {
 		return receipts
 	}
-	number := rawdb.ReadHeaderNumber(bc.db, hash)
-	if number == nil {
+
+	block := bc.GetBlockByHash(hash)
+	if block == nil {
 		return nil
 	}
-	header := bc.GetHeader(hash, *number)
-	if header == nil {
-		return nil
-	}
-	receipts := rawdb.ReadReceipts(bc.db, hash, *number, header.Time, bc.chainConfig)
+
+	receipts := rawdb.ReadRawReceipts(bc.db, hash, block.NumberU64())
 	if receipts == nil {
+		return nil
+	}
+
+	baseFee := block.Header().BaseFee
+
+	// Compute effective blob gas price.
+	var blobGasPrice *big.Int
+	if block.Header().ExcessBlobGas != nil {
+		blobGasPrice = eip4844.CalcBlobFee(*block.Header().ExcessBlobGas)
+	}
+	if err := receipts.DeriveFields(bc.chainConfig, hash, block.NumberU64(), block.Header().Time, baseFee, blobGasPrice, block.Body().Transactions); err != nil {
+		log.Error("Failed to derive block receipts fields", "hash", hash, "number", block.NumberU64(), "err", err)
 		return nil
 	}
 	bc.receiptsCache.Add(hash, receipts)
